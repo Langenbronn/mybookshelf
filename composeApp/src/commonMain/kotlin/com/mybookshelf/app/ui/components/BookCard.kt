@@ -32,6 +32,7 @@ import coil3.compose.SubcomposeAsyncImage
 import com.mybookshelf.app.data.BookClassifier
 import com.mybookshelf.app.data.AgeGroup
 import com.mybookshelf.app.data.BookInfo
+import com.mybookshelf.app.data.BookKind
 import com.mybookshelf.app.data.ReadingLevel
 import com.mybookshelf.app.data.ReadingLevels
 
@@ -71,8 +72,13 @@ fun BookCard(
             // Type of book
             val kind = BookClassifier.kind(book)
             val genres = BookClassifier.genres(book, kind)
+            val themes = BookClassifier.themes(book)
             kind?.let { DetailRow("Type", it.label) }
-            if (genres.isNotEmpty()) DetailRow("Genres", genres.joinToString(", "))
+            BookClassifier.format(book, kind)?.let { DetailRow("Format", it) }
+            if (genres.isNotEmpty()) {
+                DetailRow(if (kind == BookKind.NonFiction) "Subjects" else "Genres", genres.joinToString(", "))
+            }
+            if (themes.isNotEmpty()) DetailRow("Themes", themes.joinToString(", "))
 
             // Reading age and UK book band
             val level = ReadingLevels.of(book)

@@ -231,7 +231,9 @@ private fun CompactBookRow(book: BookInfo, onClick: () -> Unit) {
     val genre = BookClassifier.genres(book, kind).firstOrNull()
     val year = book.firstPublishYear ?: BookClassifier.yearOf(book.publishedDate)
     val age = ReadingLevels.of(book).ageGroup.let { if (it == AgeGroup.Adult) "Adult" else "Age ${it.label}" }
-    val details = listOfNotNull(kind?.label, genre, year?.toString(), age).joinToString(" · ")
+    // e.g. "Picture book · Animal story · 1969 · Age 0–3"
+    val format = BookClassifier.format(book, kind) ?: kind?.label
+    val details = listOfNotNull(format, genre, year?.toString(), age).joinToString(" · ")
 
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),

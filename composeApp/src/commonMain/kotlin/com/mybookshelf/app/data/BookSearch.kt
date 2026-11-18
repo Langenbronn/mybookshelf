@@ -30,6 +30,8 @@ object BookSearch {
             book.language,
             kind?.label,
             BookClassifier.genres(book, kind).joinToString(" "),
+            BookClassifier.themes(book).joinToString(" "),
+            BookClassifier.format(book, kind),
             book.categories.joinToString(" "),
         )
         return normalize(parts.joinToString(" "))
