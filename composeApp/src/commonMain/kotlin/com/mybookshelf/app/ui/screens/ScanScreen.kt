@@ -3,30 +3,29 @@ package com.mybookshelf.app.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,17 +33,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import com.mybookshelf.app.data.BookClassifier
 import com.mybookshelf.app.data.BookInfo
 import com.mybookshelf.app.data.BookLookup
+import com.mybookshelf.app.data.Library
 import com.mybookshelf.app.scanner.BarcodeScannerHost
+import com.mybookshelf.app.ui.components.BookCard
 import com.mybookshelf.app.ui.components.GnomeLoader
 import com.mybookshelf.app.scanner.ScanResult
 import kotlinx.coroutines.launch
@@ -118,7 +115,7 @@ fun ScanScreen() {
                 is LookupState.Loading -> Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) {
                     GnomeLoader()
                 }
-                is LookupState.Found -> BookDetails(s.book)
+                is LookupState.Found -> FoundBook(s.book)
                 is LookupState.NotFound -> Hint("No book found for ISBN ${s.isbn}.")
                 is LookupState.Failed -> Hint(s.message, isError = true)
             }
@@ -146,85 +143,26 @@ private fun Hint(text: String, isError: Boolean = false) {
     )
 }
 
+/** The book found, with a button to add it to the library. */
 @Composable
-private fun BookDetails(book: BookInfo) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Surface(
-                    modifier = Modifier.width(96.dp).height(144.dp).clip(RoundedCornerShape(6.dp)),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                ) {
-                    if (book.coverUrl != null) {
-                        AsyncImage(
-                            model = book.coverUrl,
-                            contentDescription = "Cover of ${book.title}",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.size(96.dp, 144.dp),
-                        )
-                    } else {
-                        Box(contentAlignment = Alignment.Center) { Text("No cover") }
-                    }
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(book.title, style = MaterialTheme.typography.titleLarge)
-                    book.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                    if (book.authors.isNotEmpty()) {
-                        Text(
-                            book.authors.joinToString(", "),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
+private fun FoundBook(book: BookInfo) {
+    // Re-draws automatically when the library changes
+    val savedBooks by Library.books.collectAsState()
+    val inLibrary = savedBooks.any { it.isbn == book.isbn }
+
+    BookCard(book) {
+        if (inLibrary) {
+            OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Check, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("In your library")
             }
-
-            HorizontalDivider()
-
-            // Type of book
-            val kind = BookClassifier.kind(book)
-            val genres = BookClassifier.genres(book, kind)
-            kind?.let { DetailRow("Type", it.label) }
-            if (genres.isNotEmpty()) DetailRow("Genres", genres.joinToString(", "))
-
-            // Age of the book
-            val firstYear = book.firstPublishYear
-            val editionYear = BookClassifier.yearOf(book.publishedDate)
-            firstYear?.let { DetailRow("First published", "$it · ${BookClassifier.ageText(it)}") }
-            if (book.publishedDate != null && editionYear != firstYear) {
-                val age = editionYear?.let { " · ${BookClassifier.ageText(it)}" }.orEmpty()
-                DetailRow(if (firstYear != null) "This edition" else "Published", book.publishedDate + age)
+        } else {
+            Button(onClick = { Library.add(book) }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Add to my library")
             }
-
-            DetailRow("ISBN", book.isbn)
-            book.publisher?.let { DetailRow("Publisher", it) }
-            book.pageCount?.let { DetailRow("Pages", it.toString()) }
-            book.language?.let { DetailRow("Language", it.uppercase()) }
-
-            book.description?.let {
-                HorizontalDivider()
-                Text("Description", style = MaterialTheme.typography.titleSmall)
-                Text(it, style = MaterialTheme.typography.bodyMedium)
-            }
-
-            Text(
-                "Source: ${book.source}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
-    }
-}
-
-@Composable
-private fun DetailRow(label: String, value: String) {
-    Row {
-        Text(
-            label,
-            modifier = Modifier.width(120.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }

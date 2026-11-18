@@ -11,7 +11,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** Everything we know about a book, whatever the source. */
+/**
+ * Everything we know about a book, whatever the source.
+ * @Serializable = can be saved as text (JSON) in the library.
+ */
+@Serializable
 data class BookInfo(
     val isbn: String,
     val title: String,
@@ -29,6 +33,8 @@ data class BookInfo(
     val description: String? = null,
     val coverUrl: String? = null,
     val source: String,
+    /** Date the book was added to the library, e.g. "2026-11-18" (null if not in the library). */
+    val addedOn: String? = null,
 )
 
 /**

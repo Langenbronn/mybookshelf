@@ -12,6 +12,10 @@ Open Library as a fallback.
   "Google Play" system image, or type the ISBN by hand).
 - iOS: uses the camera directly (`scanner/BarcodeScanner.ios.kt`); permission text is in `Info.plist`.
 
+Tap **Add to my library** under a found book to save it. The **Library** page lists the saved
+books with all their details. They are stored on the phone (`data/Library.kt`), so they stay
+after closing the app.
+
 ## Open the project (Android Studio)
 
 1. Android Studio > **File > Open** > select this `my-bookshelf` folder.

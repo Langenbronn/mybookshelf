@@ -67,7 +67,7 @@ fun App() {
                 when (currentScreen) {
                     Screen.Home -> HomeScreen(onOpenLibrary = { currentScreen = Screen.Library })
                     Screen.Scan -> ScanScreen()
-                    Screen.Library -> LibraryScreen()
+                    Screen.Library -> LibraryScreen(onScan = { currentScreen = Screen.Scan })
                     Screen.Favorites -> FavoritesScreen()
                     Screen.Settings -> SettingsScreen()
                 }
