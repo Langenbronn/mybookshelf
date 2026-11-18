@@ -19,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,6 +45,7 @@ import com.mybookshelf.app.data.BookClassifier
 import com.mybookshelf.app.data.BookInfo
 import com.mybookshelf.app.data.BookLookup
 import com.mybookshelf.app.scanner.BarcodeScannerHost
+import com.mybookshelf.app.ui.components.GnomeLoader
 import com.mybookshelf.app.scanner.ScanResult
 import kotlinx.coroutines.launch
 
@@ -115,8 +115,8 @@ fun ScanScreen() {
 
             when (val s = state) {
                 LookupState.Idle -> Hint("Scan the barcode on the back of a book to see its details.")
-                is LookupState.Loading -> Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) {
-                    CircularProgressIndicator()
+                is LookupState.Loading -> Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) {
+                    GnomeLoader()
                 }
                 is LookupState.Found -> BookDetails(s.book)
                 is LookupState.NotFound -> Hint("No book found for ISBN ${s.isbn}.")
