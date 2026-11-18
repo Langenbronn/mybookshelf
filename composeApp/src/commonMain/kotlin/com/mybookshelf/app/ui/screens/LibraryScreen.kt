@@ -53,6 +53,8 @@ import com.mybookshelf.app.data.BookSearch
 import com.mybookshelf.app.data.Library
 import com.mybookshelf.app.ui.components.BookCard
 import com.mybookshelf.app.ui.components.BookCover
+import com.mybookshelf.app.ui.components.GnomeMessage
+import com.mybookshelf.app.ui.components.GnomePose
 
 /**
  * Library page: every book the user added from the Scan page.
@@ -265,11 +267,11 @@ private fun EmptyLibrary(onScan: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Your library is empty", style = MaterialTheme.typography.titleLarge)
-        Text(
-            "Scan a book's barcode, then tap \"Add to my library\".",
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        // The gnome sleeps: nothing to read yet!
+        GnomeMessage(
+            GnomePose.Sleeping,
+            title = "Your library is empty",
+            message = "Scan a book's barcode, then tap \"Add to my library\".",
         )
         Button(onClick = onScan) { Text("Scan a book") }
     }

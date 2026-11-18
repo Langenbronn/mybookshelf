@@ -11,6 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.mybookshelf.app.ui.components.Gnome
+import com.mybookshelf.app.ui.components.GnomePose
 
 /**
  * Home page.
@@ -23,6 +25,7 @@ fun HomeScreen(onOpenLibrary: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Gnome(GnomePose.Waving, size = 160.dp)
         Text("Welcome to My Bookshelf", style = MaterialTheme.typography.headlineSmall)
         Text("Use the menu at the bottom to switch pages.")
         Button(onClick = onOpenLibrary) {

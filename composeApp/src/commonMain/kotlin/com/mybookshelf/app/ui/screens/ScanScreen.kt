@@ -3,6 +3,7 @@ package com.mybookshelf.app.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,13 +16,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,14 +34,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.mybookshelf.app.data.BookInfo
 import com.mybookshelf.app.data.BookLookup
 import com.mybookshelf.app.data.Library
 import com.mybookshelf.app.scanner.BarcodeScannerHost
 import com.mybookshelf.app.ui.components.BookCard
+import com.mybookshelf.app.ui.components.Gnome
 import com.mybookshelf.app.ui.components.GnomeLoader
+import com.mybookshelf.app.ui.components.GnomeMessage
+import com.mybookshelf.app.ui.components.GnomePose
 import com.mybookshelf.app.scanner.ScanResult
 import kotlinx.coroutines.launch
 
@@ -111,13 +112,26 @@ fun ScanScreen() {
             )
 
             when (val s = state) {
-                LookupState.Idle -> Hint("Scan the barcode on the back of a book to see its details.")
+                LookupState.Idle -> GnomeMessage(
+                    GnomePose.Searching,
+                    "Scan the barcode on the back of a book to see its details.",
+                    Modifier.fillMaxWidth().padding(top = 16.dp),
+                )
                 is LookupState.Loading -> Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) {
                     GnomeLoader()
                 }
                 is LookupState.Found -> FoundBook(s.book)
-                is LookupState.NotFound -> Hint("No book found for ISBN ${s.isbn}.")
-                is LookupState.Failed -> Hint(s.message, isError = true)
+                is LookupState.NotFound -> GnomeMessage(
+                    GnomePose.Confused,
+                    "No book found for ISBN ${s.isbn}.",
+                    Modifier.fillMaxWidth().padding(top = 16.dp),
+                )
+                is LookupState.Failed -> GnomeMessage(
+                    GnomePose.Confused,
+                    s.message,
+                    Modifier.fillMaxWidth().padding(top = 16.dp),
+                    isError = true,
+                )
             }
         }
 
@@ -133,16 +147,6 @@ fun ScanScreen() {
     }
 }
 
-@Composable
-private fun Hint(text: String, isError: Boolean = false) {
-    Text(
-        text,
-        modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-        textAlign = TextAlign.Center,
-        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
 /** The book found, with a button to add it to the library. */
 @Composable
 private fun FoundBook(book: BookInfo) {
@@ -152,10 +156,18 @@ private fun FoundBook(book: BookInfo) {
 
     BookCard(book) {
         if (inLibrary) {
-            OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Check, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("In your library")
+            // The gnome celebrates the new book
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Gnome(GnomePose.Celebrating, size = 72.dp)
+                Text(
+                    "In your library!",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
         } else {
             Button(onClick = { Library.add(book) }, modifier = Modifier.fillMaxWidth()) {
