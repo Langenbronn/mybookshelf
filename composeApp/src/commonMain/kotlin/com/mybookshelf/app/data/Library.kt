@@ -53,6 +53,12 @@ object Library {
 
     fun removeAll() = update(emptyList())
 
+    /** Saves the details corrected by hand for one book (null or empty = back to automatic). */
+    fun setCorrections(isbn: String, corrections: Corrections?) {
+        val clean = corrections?.takeIf { !it.isEmpty }
+        update(_books.value.map { if (it.isbn == isbn) it.copy(corrections = clean) else it })
+    }
+
     fun remove(isbn: String) {
         update(_books.value.filterNot { it.isbn == isbn })
     }

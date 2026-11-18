@@ -56,6 +56,7 @@ private fun AgeGroup.sectionTitle(): String = when (this) {
     AgeGroup.Age9to11 -> "9–11 years · Year 5–6"
     AgeGroup.Teen -> "11–15 years"
     AgeGroup.Adult -> "Adult"
+    AgeGroup.Unknown -> "Unknown"
 }
 
 /**
@@ -99,7 +100,10 @@ fun BookBandFilter(
                 val bands = BookBand.forAge(group)
                 if (bands.size == 1) {
                     // Only one "band" (before bands, free reader, adult): a single line
-                    BandItem(bands.first(), selected, onChange, trailing = if (group == AgeGroup.Adult) null else group.label)
+                    BandItem(
+                        bands.first(), selected, onChange,
+                        trailing = if (group == AgeGroup.Adult || group == AgeGroup.Unknown) null else group.label,
+                    )
                 } else {
                     val count = bands.count { it in selected }
                     val state = when (count) {

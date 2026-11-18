@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
@@ -57,6 +58,7 @@ import com.mybookshelf.app.data.ReadingLevels
 import com.mybookshelf.app.ui.components.BookBandFilter
 import com.mybookshelf.app.ui.components.BookCard
 import com.mybookshelf.app.ui.components.BookCover
+import com.mybookshelf.app.ui.components.EditDetailsDialog
 import com.mybookshelf.app.ui.components.GnomeMessage
 import com.mybookshelf.app.ui.components.GnomePose
 
@@ -73,6 +75,8 @@ fun LibraryScreen(onScan: () -> Unit) {
     var openIsbn by remember { mutableStateOf<String?>(null) }
     // The book waiting for "Remove?" confirmation (null = no dialog)
     var bookToRemove by remember { mutableStateOf<BookInfo?>(null) }
+    // The book whose details are being corrected by hand (null = no dialog)
+    var bookToEdit by remember { mutableStateOf<BookInfo?>(null) }
     // Text typed in the search bar
     var query by rememberSaveable { mutableStateOf("") }
     // Book bands ticked in the drop-down list (empty = all)
@@ -117,11 +121,19 @@ fun LibraryScreen(onScan: () -> Unit) {
                 }
             }
             items(shownBooks, key = { it.isbn }) { book ->
+                // "Edit details" + "Remove" side by side, under each full card
                 val removeButton: @Composable () -> Unit = {
-                    OutlinedButton(onClick = { bookToRemove = book }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Filled.Delete, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Remove from library")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { bookToEdit = book }, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Filled.Edit, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Edit details")
+                        }
+                        OutlinedButton(onClick = { bookToRemove = book }, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Filled.Delete, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Remove")
+                        }
                     }
                 }
                 when {
@@ -148,6 +160,17 @@ fun LibraryScreen(onScan: () -> Unit) {
                 }
             }
         }
+    }
+
+    bookToEdit?.let { book ->
+        EditDetailsDialog(
+            book = book,
+            onSave = { corrections ->
+                Library.setCorrections(book.isbn, corrections)
+                bookToEdit = null
+            },
+            onDismiss = { bookToEdit = null },
+        )
     }
 
     bookToRemove?.let { book ->
@@ -230,7 +253,13 @@ private fun CompactBookRow(book: BookInfo, onClick: () -> Unit) {
     val kind = BookClassifier.kind(book)
     val genre = BookClassifier.genres(book, kind).firstOrNull()
     val year = book.firstPublishYear ?: BookClassifier.yearOf(book.publishedDate)
-    val age = ReadingLevels.of(book).ageGroup.let { if (it == AgeGroup.Adult) "Adult" else "Age ${it.label}" }
+    val age = ReadingLevels.of(book).ageGroup.let {
+        when (it) {
+            AgeGroup.Adult -> "Adult"
+            AgeGroup.Unknown -> "Age unknown"
+            else -> "Age ${it.label}"
+        }
+    }
     // e.g. "Picture book · Animal story · 1969 · Age 0–3"
     val format = BookClassifier.format(book, kind) ?: kind?.label
     val details = listOfNotNull(format, genre, year?.toString(), age).joinToString(" · ")

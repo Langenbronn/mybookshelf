@@ -37,6 +37,8 @@ data class BookInfo(
     val source: String,
     /** Date the book was added to the library, e.g. "2026-11-18" (null if not in the library). */
     val addedOn: String? = null,
+    /** Details corrected by hand in the Library (null = everything automatic). */
+    val corrections: Corrections? = null,
 )
 
 /**

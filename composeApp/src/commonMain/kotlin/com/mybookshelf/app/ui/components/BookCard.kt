@@ -24,7 +24,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -33,6 +38,7 @@ import com.mybookshelf.app.data.BookClassifier
 import com.mybookshelf.app.data.AgeGroup
 import com.mybookshelf.app.data.BookInfo
 import com.mybookshelf.app.data.BookKind
+import com.mybookshelf.app.data.Origin
 import com.mybookshelf.app.data.ReadingLevel
 import com.mybookshelf.app.data.ReadingLevels
 
@@ -69,20 +75,27 @@ fun BookCard(
 
             HorizontalDivider()
 
-            // Type of book
+            // Type of book. Each line says where it comes from:
+            // "estimated" = guessed by the app, "set by you" = corrected by hand, nothing = from the database
             val kind = BookClassifier.kind(book)
             val genres = BookClassifier.genres(book, kind)
             val themes = BookClassifier.themes(book)
-            kind?.let { DetailRow("Type", it.label) }
-            BookClassifier.format(book, kind)?.let { DetailRow("Format", it) }
-            if (genres.isNotEmpty()) {
-                DetailRow(if (kind == BookKind.NonFiction) "Subjects" else "Genres", genres.joinToString(", "))
-            }
-            if (themes.isNotEmpty()) DetailRow("Themes", themes.joinToString(", "))
+            DetailRow("Type", kind?.label, BookClassifier.kindOrigin(book))
+            DetailRow("Format", BookClassifier.format(book, kind), BookClassifier.formatOrigin(book, kind))
+            DetailRow(
+                if (kind == BookKind.NonFiction) "Subjects" else "Genres",
+                genres.joinToString(", ").ifEmpty { null },
+                BookClassifier.genresOrigin(book, kind),
+            )
+            DetailRow("Themes", themes.joinToString(", ").ifEmpty { null }, BookClassifier.themesOrigin(book))
 
             // Reading age and UK book band
             val level = ReadingLevels.of(book)
-            DetailRow("Reading age", readingAgeText(level))
+            DetailRow(
+                "Reading age",
+                readingAgeText(level).takeIf { level.ageGroup != AgeGroup.Unknown },
+                level.origin,
+            )
             BandRow(level)
 
             // Age of the book
@@ -103,7 +116,8 @@ fun BookCard(
             book.description?.let { Description(it, shortDescription) }
 
             Text(
-                "Source: ${book.source}",
+                "Source: ${book.source}. \"estimated\" = guessed by the app from the book's subjects " +
+                    "and number of pages. \"set by you\" = corrected by hand (Library > Edit details).",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -113,10 +127,10 @@ fun BookCard(
     }
 }
 
-/** "4–5 years (estimated)", "Adult (estimated)", "4–5 years" (exact ORT stage). */
-fun readingAgeText(level: ReadingLevel): String {
-    val age = if (level.ageGroup == AgeGroup.Adult) "Adult" else "${level.ageGroup.label} years"
-    return if (level.estimated) "$age (estimated)" else age
+/** "4–5 years", "Adult", "Unknown". */
+fun readingAgeText(level: ReadingLevel): String = when (level.ageGroup) {
+    AgeGroup.Adult, AgeGroup.Unknown -> level.ageGroup.label
+    else -> "${level.ageGroup.label} years"
 }
 
 /** The book's cover image, or a grey box saying "No cover". */
@@ -196,7 +210,10 @@ private fun BandRow(level: ReadingLevel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(level.bookBand, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                withOrigin(level.bookBand.takeIf { level.ageGroup != AgeGroup.Unknown }, level.origin),
+                style = MaterialTheme.typography.bodyMedium,
+            )
             if (level.bands.any { it.argb != null }) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     level.bands.forEach { BandSwatch(it) }
@@ -206,8 +223,16 @@ private fun BandRow(level: ReadingLevel) {
     }
 }
 
+/** A line of facts (always from the database). */
 @Composable
-private fun DetailRow(label: String, value: String) {
+private fun DetailRow(label: String, value: String) = DetailRow(label, value, Origin.Database)
+
+/**
+ * A line whose value may be guessed or corrected: adds a small "estimated" / "set by you" after it.
+ * A null value is shown as a grey "Unknown".
+ */
+@Composable
+private fun DetailRow(label: String, value: String?, origin: Origin) {
     Row {
         Text(
             label,
@@ -215,6 +240,33 @@ private fun DetailRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(value, style = MaterialTheme.typography.bodyMedium)
+        Text(withOrigin(value, origin), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/**
+ * "Fantasy, Adventure · estimated" (grey), "Picture book · set by you" (colored),
+ * or a grey italic "Unknown" when there is no value.
+ */
+@Composable
+private fun withOrigin(value: String?, origin: Origin): AnnotatedString {
+    val small = MaterialTheme.typography.labelSmall.fontSize
+    val grey = MaterialTheme.colorScheme.onSurfaceVariant
+    val primary = MaterialTheme.colorScheme.primary
+    return buildAnnotatedString {
+        if (value == null) {
+            withStyle(SpanStyle(color = grey, fontStyle = FontStyle.Italic)) { append("Unknown") }
+            return@buildAnnotatedString
+        }
+        append(value)
+        when (origin) {
+            Origin.Estimated -> withStyle(SpanStyle(color = grey, fontStyle = FontStyle.Italic, fontSize = small)) {
+                append("  · estimated")
+            }
+            Origin.User -> withStyle(SpanStyle(color = primary, fontStyle = FontStyle.Italic, fontSize = small)) {
+                append("  · set by you")
+            }
+            Origin.Database, Origin.Unknown -> Unit
+        }
     }
 }

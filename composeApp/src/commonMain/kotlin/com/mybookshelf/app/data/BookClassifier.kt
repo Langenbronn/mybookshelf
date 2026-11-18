@@ -106,8 +106,29 @@ object BookClassifier {
     private val schoolRegexes by lazy { compile(schoolSubjects) }
     private val themeRegexes by lazy { compile(themes) }
 
-    /** Fiction, non-fiction, or null if we can't tell. */
-    fun kind(book: BookInfo): BookKind? {
+    // ---------- Lists shown in "Edit details" ----------
+
+    val fictionGenreNames: List<String> get() = fictionGenres.map { it.first }
+    val schoolSubjectNames: List<String> get() = schoolSubjects.map { it.first }
+    val themeNames: List<String> get() = themes.map { it.first }
+    val formatNames = listOf(
+        "Board book", "Picture book", "Picture information book", "Lift-the-flap / pop-up book",
+        "Reading scheme book (Oxford Reading Tree)", "First reader", "Chapter book", "Novel",
+        "Graphic novel / comic", "Activity book", "Information book", "Non-fiction book", "Reference book", "Poetry",
+    )
+
+    // ---------- Type ----------
+
+    /** Fiction, non-fiction, or null if we can't tell. A hand correction always wins. */
+    fun kind(book: BookInfo): BookKind? = book.corrections?.kind ?: guessedKind(book)
+
+    fun kindOrigin(book: BookInfo): Origin = when {
+        book.corrections?.kind != null -> Origin.User
+        guessedKind(book) != null -> Origin.Estimated
+        else -> Origin.Unknown
+    }
+
+    private fun guessedKind(book: BookInfo): BookKind? {
         val subjects = book.subjects.map { it.lowercase().replace("non fiction", "nonfiction") }
         val nonFictionVotes = subjects.count { "nonfiction" in it || "non-fiction" in it }
         // "fiction" on its own (not inside "nonfiction" / "non-fiction")
@@ -125,17 +146,35 @@ object BookClassifier {
      * Up to 4 genres (fiction, e.g. "Rhyming story", "Animal story") or
      * school subjects (non-fiction, e.g. "Maths", "Nature & animals"), strongest first.
      */
-    fun genres(book: BookInfo, kind: BookKind?): List<String> {
+    fun genres(book: BookInfo, kind: BookKind?): List<String> =
+        book.corrections?.genres
+            // Nothing recognised: fall back to the raw categories (given by Google Books, not guessed)
+            ?: guessedGenres(book, kind).ifEmpty { book.categories }.take(4)
+
+    fun genresOrigin(book: BookInfo, kind: BookKind?): Origin = when {
+        book.corrections?.genres != null -> Origin.User
+        guessedGenres(book, kind).isNotEmpty() -> Origin.Estimated
+        book.categories.isNotEmpty() -> Origin.Database
+        else -> Origin.Unknown
+    }
+
+    private fun guessedGenres(book: BookInfo, kind: BookKind?): List<String> {
         val table = if (kind == BookKind.NonFiction) schoolRegexes else fictionRegexes
         val found = ranked(table, book, maxItems = 5, minCount = minCount(book))
         val young = ReadingLevels.of(book).ageGroup in youngGroups
-        val genres = if (young) found.filter { it !in grownUpGenres } else found
-        // Nothing recognised: fall back to the raw categories
-        return genres.ifEmpty { book.categories }.take(4)
+        return if (young) found.filter { it !in grownUpGenres } else found
     }
 
-    /** Up to 5 themes, e.g. ["Animals", "Friendship", "Colours"]. */
-    fun themes(book: BookInfo): List<String> {
+    /** Up to 5 themes, e.g. ["Animals", "Friendship", "Colours"]. A hand correction always wins. */
+    fun themes(book: BookInfo): List<String> = book.corrections?.themes ?: guessedThemes(book)
+
+    fun themesOrigin(book: BookInfo): Origin = when {
+        book.corrections?.themes != null -> Origin.User
+        guessedThemes(book).isNotEmpty() -> Origin.Estimated
+        else -> Origin.Unknown
+    }
+
+    private fun guessedThemes(book: BookInfo): List<String> {
         // Children's books have few, relevant subjects: one mention is enough
         val young = ReadingLevels.of(book).ageGroup in youngGroups
         return ranked(themeRegexes, book, maxItems = 5, minCount = if (young) 1 else minCount(book))
@@ -159,7 +198,17 @@ object BookClassifier {
      * The physical kind of book: "Board book", "Picture book", "Reading scheme book",
      * "First reader", "Chapter book", "Novel", "Graphic novel", "Activity book"…
      */
-    fun format(book: BookInfo, kind: BookKind?): String? {
+    fun format(book: BookInfo, kind: BookKind?): String? = book.corrections?.format ?: guessedFormat(book, kind)
+
+    /** Exact for Oxford Reading Tree books (written in the title), guessed otherwise. */
+    fun formatOrigin(book: BookInfo, kind: BookKind?): Origin = when {
+        book.corrections?.format != null -> Origin.User
+        ReadingLevels.isOxfordReadingTree(book) -> Origin.Database
+        guessedFormat(book, kind) != null -> Origin.Estimated
+        else -> Origin.Unknown
+    }
+
+    private fun guessedFormat(book: BookInfo, kind: BookKind?): String? {
         val all = book.subjects.joinToString(" | ") { it.lowercase() }
         val level = ReadingLevels.of(book)
         val group = level.ageGroup
@@ -168,7 +217,8 @@ object BookClassifier {
         fun has(vararg words: String) = words.any { it in all }
         fun count(word: String) = Regex(Regex.escape(word)).findAll(all).count()
         return when {
-            !level.estimated -> "Reading scheme book (Oxford Reading Tree)"
+            ReadingLevels.isOxfordReadingTree(book) -> "Reading scheme book (Oxford Reading Tree)"
+            group == AgeGroup.Unknown -> null
             // "Toy and movable books" alone is not enough: it's often about one special edition
             has("lift-the-flap", "lift the flap", "pop-up books") && littleOnes -> "Lift-the-flap / pop-up book"
             has("board book") && group == AgeGroup.Baby -> "Board book"
