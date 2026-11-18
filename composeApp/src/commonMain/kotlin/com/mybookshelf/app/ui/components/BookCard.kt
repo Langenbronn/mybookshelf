@@ -1,7 +1,6 @@
 package com.mybookshelf.app.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,9 +28,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
 import com.mybookshelf.app.data.BookClassifier
+import com.mybookshelf.app.data.AgeGroup
 import com.mybookshelf.app.data.BookInfo
+import com.mybookshelf.app.data.ReadingLevel
+import com.mybookshelf.app.data.ReadingLevels
 
 /**
  * A card with everything we know about a book.
@@ -72,6 +74,11 @@ fun BookCard(
             kind?.let { DetailRow("Type", it.label) }
             if (genres.isNotEmpty()) DetailRow("Genres", genres.joinToString(", "))
 
+            // Reading age and UK book band
+            val level = ReadingLevels.of(book)
+            DetailRow("Reading age", readingAgeText(level))
+            BandRow(level)
+
             // Age of the book
             val firstYear = book.firstPublishYear
             val editionYear = BookClassifier.yearOf(book.publishedDate)
@@ -100,24 +107,56 @@ fun BookCard(
     }
 }
 
+/** "4–5 years (estimated)", "Adult (estimated)", "4–5 years" (exact ORT stage). */
+fun readingAgeText(level: ReadingLevel): String {
+    val age = if (level.ageGroup == AgeGroup.Adult) "Adult" else "${level.ageGroup.label} years"
+    return if (level.estimated) "$age (estimated)" else age
+}
+
 /** The book's cover image, or a grey box saying "No cover". */
 @Composable
-fun BookCover(book: BookInfo, width: Dp, height: Dp) {
+fun BookCover(book: BookInfo, width: Dp, height: Dp) = BookCover(book.coverUrl, book.title, width, height)
+
+@Composable
+fun BookCover(coverUrl: String?, title: String, width: Dp, height: Dp) {
     Surface(
         modifier = Modifier.width(width).height(height).clip(RoundedCornerShape(6.dp)),
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
-        if (book.coverUrl != null) {
-            AsyncImage(
-                model = book.coverUrl,
-                contentDescription = "Cover of ${book.title}",
+        if (coverUrl != null) {
+            SubcomposeAsyncImage(
+                model = coverUrl,
+                contentDescription = "Cover of $title",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(width, height),
+                // While the image downloads: the gnome paints the cover
+                loading = { CoverGnome(GnomePose.Painting, width, height, text = null) },
+                // Download failed: same as no cover
+                error = { CoverGnome(GnomePose.Shy, width, height, text = "No cover") },
             )
         } else {
-            Box(contentAlignment = Alignment.Center) {
-                Text("No cover", style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
-            }
+            CoverGnome(GnomePose.Shy, width, height, text = "No cover")
+        }
+    }
+}
+
+/** A gnome filling the cover space, with a small text under it on big covers. */
+@Composable
+private fun CoverGnome(pose: GnomePose, width: Dp, height: Dp, text: String?) {
+    Column(
+        modifier = Modifier.size(width, height),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Gnome(pose, size = width)
+        // Only on big covers: on small ones the text would be too tiny
+        if (text != null && height >= 120.dp) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -136,6 +175,27 @@ private fun Description(text: String, short: Boolean) {
     if (short) {
         TextButton(onClick = { expanded = !expanded }) {
             Text(if (expanded) "Show less" else "Show more")
+        }
+    }
+}
+
+/** "Book band" + the text + one colored dot per possible band. */
+@Composable
+private fun BandRow(level: ReadingLevel) {
+    Row {
+        Text(
+            "Book band",
+            modifier = Modifier.width(120.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(level.bookBand, style = MaterialTheme.typography.bodyMedium)
+            if (level.bands.any { it.argb != null }) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    level.bands.forEach { BandSwatch(it) }
+                }
+            }
         }
     }
 }

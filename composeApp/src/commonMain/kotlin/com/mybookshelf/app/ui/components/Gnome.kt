@@ -39,6 +39,8 @@ enum class GnomePose(val label: String) {
     Celebrating("Celebrating"),
     Sleeping("Sleeping"),
     Love("Love"),
+    Painting("Painting"),
+    Shy("Shy"),
 }
 
 // Gnome colors (the same in light and dark mode)
@@ -57,6 +59,12 @@ private val Glass = Color(0x66BFE3F5)
 private val Amber = Color(0xFFE0A030)
 private val SleepBlue = Color(0xFF7E8FB3)
 private val HeartRed = Color(0xFFE5484D)
+private val Blush = Color(0x80F28B8B)
+private val Drop = Color(0xFF9CCFEA)
+private val PaletteWood = Color(0xFFD9B382)
+private val PaintBlue = Color(0xFF7FB8E6)
+private val PaintYellow = Color(0xFFF6C744)
+private val PaintGreen = Color(0xFF6DBE6A)
 private val Confetti = listOf(Color(0xFFE5484D), Color(0xFFE0A030), Color(0xFF3F6FB5), Color(0xFF46A758))
 private val BookCover = Color(0xFF7A4B2A)
 private val Page = Color(0xFFFFF8E7)
@@ -108,6 +116,8 @@ fun Gnome(pose: GnomePose, modifier: Modifier = Modifier, size: Dp = 140.dp) {
                 GnomePose.Celebrating -> drawCelebrating(fast, slow)
                 GnomePose.Sleeping -> drawSleeping(slow)
                 GnomePose.Love -> drawLove(fast, slow)
+                GnomePose.Painting -> drawPainting(fast, slow, blink)
+                GnomePose.Shy -> drawShy(slow, blink)
             }
         }
     }
@@ -238,6 +248,74 @@ private fun DrawScope.drawLove(fast: Float, slow: Float) {
     )
 }
 
+/** Painting a little picture on an easel (used while a cover is loading). */
+private fun DrawScope.drawPainting(fast: Float, slow: Float, blink: Float) {
+    drawEasel(progress = slow / TWO_PI)
+    // The gnome stands a bit to the left of the easel; the brush goes up and down
+    val hand = Offset(78f + 1.5f * sin(fast), 53f + 4f * sin(fast))
+    val paletteHand = Offset(34f, 72f)
+    drawGnome(
+        Look(shiftX = -12f, bounce = -(1f + sin(slow * 2f)) * 0.4f, hatAngle = 4f + sin(slow) * 3f, eyeOpen = blink, lookX = 1f),
+        arms = {
+            drawArm(Offset(41f, 60f), paletteHand)
+            drawArm(Offset(59f, 60f), hand)
+        },
+        front = {
+            // Palette with paint dots in the left hand
+            drawOval(PaletteWood, Offset(paletteHand.x - 7f, paletteHand.y - 1f), Size(11f, 6.5f))
+            drawCircle(HeartRed, 0.9f, Offset(paletteHand.x - 4.5f, paletteHand.y + 1.5f))
+            drawCircle(PaintYellow, 0.9f, Offset(paletteHand.x - 2f, paletteHand.y + 3.5f))
+            drawCircle(PaintBlue, 0.9f, Offset(paletteHand.x + 1f, paletteHand.y + 3.8f))
+            drawCircle(Skin, radius = 2.8f, center = paletteHand)
+            // Brush
+            val tip = Offset(hand.x + 4f, hand.y - 5f)
+            drawLine(Wood, hand, tip, strokeWidth = 1.4f, cap = StrokeCap.Round)
+            drawCircle(PaintBlue, radius = 1.1f, center = tip)
+            drawCircle(Skin, radius = 2.8f, center = hand)
+        },
+    )
+}
+
+/** Easel with a picture that gets painted little by little ([progress] 0..1). */
+private fun DrawScope.drawEasel(progress: Float) {
+    drawLine(Wood, Offset(70f, 92f), Offset(74f, 34f), strokeWidth = 1.6f, cap = StrokeCap.Round)
+    drawLine(Wood, Offset(86f, 92f), Offset(80f, 34f), strokeWidth = 1.6f, cap = StrokeCap.Round)
+    drawRect(Page, Offset(64f, 36f), Size(24f, 26f))
+    drawRect(Wood, Offset(64f, 36f), Size(24f, 26f), style = Stroke(width = 1f))
+    drawRect(Wood, Offset(63f, 62f), Size(26f, 2f))
+    // 1st third: sky, 2nd: sun, 3rd: hill
+    val sky = (progress * 3f).coerceIn(0f, 1f)
+    val sun = (progress * 3f - 1f).coerceIn(0f, 1f)
+    val hill = (progress * 3f - 2f).coerceIn(0f, 1f)
+    drawRect(PaintBlue, Offset(65.5f, 37.5f), Size(21f * sky, 12f))
+    if (sun > 0f) drawCircle(PaintYellow, radius = 3.5f * sun, center = Offset(81f, 42f))
+    drawRect(PaintGreen, Offset(65.5f, 52f), Size(21f * hill, 8.5f))
+}
+
+/** Shy and sorry (used when a book has no cover): eyes down, pink cheeks, hands together. */
+private fun DrawScope.drawShy(slow: Float, blink: Float) {
+    val sway = sin(slow)
+    drawGnome(
+        Look(shiftX = sway * 1.2f, bounce = 0.5f, hatAngle = 6f + sway * 2f, eyeOpen = blink, lookY = 0.8f, blush = true),
+        arms = {
+            drawArm(Offset(41f, 60f), Offset(47f, 78f))
+            drawArm(Offset(59f, 60f), Offset(53f, 78f))
+        },
+    )
+    // A little drop of embarrassment sliding down next to the hat
+    val p = (slow / TWO_PI * 2f) % 1f
+    val drop = Offset(66f + sway * 1.2f, 30f + p * 8f)
+    val alpha = 1f - p
+    val dropPath = Path().apply {
+        moveTo(drop.x, drop.y - 3f)
+        quadraticTo(drop.x + 1.6f, drop.y - 0.5f, drop.x + 1.4f, drop.y + 0.4f)
+        quadraticTo(drop.x, drop.y + 2.2f, drop.x - 1.4f, drop.y + 0.4f)
+        quadraticTo(drop.x - 1.6f, drop.y - 0.5f, drop.x, drop.y - 3f)
+        close()
+    }
+    drawPath(dropPath, Drop.copy(alpha = alpha))
+}
+
 // ---------------------------------------------------------------------------
 // The gnome itself (shared by every pose)
 // ---------------------------------------------------------------------------
@@ -252,6 +330,9 @@ private class Look(
     val eyes: EyeStyle = EyeStyle.Open,
     val eyeOpen: Float = 1f,         // 1 = open, 0.1 = blinking
     val lookX: Float = 0f,           // eyes looking left/right
+    val lookY: Float = 0f,           // eyes looking down (positive)
+    val blush: Boolean = false,      // pink cheeks
+    val shiftX: Float = 0f,          // move the whole gnome left/right
 )
 
 /**
@@ -262,6 +343,12 @@ private fun DrawScope.drawGnome(
     look: Look,
     arms: DrawScope.() -> Unit = {},
     front: DrawScope.() -> Unit = {},
+) = translate(left = look.shiftX) { drawGnomeAtCenter(look, arms, front) }
+
+private fun DrawScope.drawGnomeAtCenter(
+    look: Look,
+    arms: DrawScope.() -> Unit,
+    front: DrawScope.() -> Unit,
 ) {
     // Shadow: smaller when the gnome is up
     val shadowWidth = (40f + look.bounce * 2f).coerceAtLeast(20f)
@@ -303,6 +390,10 @@ private fun DrawScope.drawGnome(
         drawPath(beard, BeardEdge, style = Stroke(width = 0.8f))
 
         drawEyes(look)
+        if (look.blush) {
+            drawCircle(Blush, radius = 2.4f, center = Offset(43.2f, 47f))
+            drawCircle(Blush, radius = 2.4f, center = Offset(56.8f, 47f))
+        }
 
         // Big round nose
         drawCircle(Nose, radius = 3.6f, center = Offset(50f, 46.5f))
@@ -326,21 +417,22 @@ private fun DrawScope.drawGnome(
 private fun DrawScope.drawEyes(look: Look) {
     for (x in listOf(44.4f, 52.4f)) {
         val left = x + look.lookX
+        val y = 42f + look.lookY
         when (look.eyes) {
             EyeStyle.Open -> {
                 val h = 3.6f * look.eyeOpen
-                drawOval(Eyes, Offset(left, 42f - h / 2f), Size(3.2f, h))
+                drawOval(Eyes, Offset(left, y - h / 2f), Size(3.2f, h))
             }
             // ‿ closed, peaceful
             EyeStyle.Closed -> drawArc(
                 Eyes, startAngle = 0f, sweepAngle = 180f, useCenter = false,
-                topLeft = Offset(left - 0.2f, 40.5f), size = Size(3.6f, 3f),
+                topLeft = Offset(left - 0.2f, y - 1.5f), size = Size(3.6f, 3f),
                 style = Stroke(width = 0.9f, cap = StrokeCap.Round),
             )
             // ^ happy
             EyeStyle.Happy -> drawArc(
                 Eyes, startAngle = 180f, sweepAngle = 180f, useCenter = false,
-                topLeft = Offset(left - 0.2f, 41f), size = Size(3.6f, 3f),
+                topLeft = Offset(left - 0.2f, y - 1f), size = Size(3.6f, 3f),
                 style = Stroke(width = 0.9f, cap = StrokeCap.Round),
             )
         }

@@ -30,6 +30,8 @@ data class BookInfo(
     /** Year the work first came out (any edition), e.g. 1937 for The Hobbit. */
     val firstPublishYear: Int? = null,
     val language: String? = null,
+    /** Google Books: "MATURE" for adult-only books, "NOT_MATURE" otherwise. */
+    val maturityRating: String? = null,
     val description: String? = null,
     val coverUrl: String? = null,
     val source: String,
@@ -84,6 +86,57 @@ object BookLookup {
         return null
     }
 
+    /**
+     * Searches books by title and/or author (e.g. "roald dahl", "petit prince").
+     * Returns up to 20 results that have an ISBN, so they can be opened with [findByIsbn].
+     */
+    suspend fun searchByText(query: String): List<SearchResult> {
+        val response: OpenLibraryTextSearch = client.get("https://openlibrary.org/search.json") {
+            parameter("q", query)
+            parameter("fields", "title,author_name,first_publish_year,cover_i,editions,editions.isbn")
+            parameter("limit", 20)
+        }.body()
+        return response.docs.mapNotNull { doc ->
+            val isbns = doc.editions?.docs?.firstOrNull()?.isbn.orEmpty()
+            val isbn = isbns.firstOrNull { it.length == 13 } ?: isbns.firstOrNull() ?: return@mapNotNull null
+            SearchResult(
+                isbn = isbn,
+                title = doc.title ?: return@mapNotNull null,
+                authors = doc.author_name.orEmpty(),
+                firstPublishYear = doc.first_publish_year,
+                coverUrl = doc.cover_i?.let { "https://covers.openlibrary.org/b/id/$it-M.jpg" },
+            )
+        }
+    }
+
+    /** One line in the search results (not the full book: tap it to load everything). */
+    data class SearchResult(
+        val isbn: String,
+        val title: String,
+        val authors: List<String>,
+        val firstPublishYear: Int?,
+        val coverUrl: String?,
+    )
+
+    @Serializable
+    private data class OpenLibraryTextSearch(val docs: List<OpenLibraryTextDoc> = emptyList())
+
+    @Suppress("PropertyName")
+    @Serializable
+    private data class OpenLibraryTextDoc(
+        val title: String? = null,
+        val author_name: List<String>? = null,
+        val first_publish_year: Int? = null,
+        val cover_i: Long? = null,
+        val editions: OpenLibraryEditions? = null,
+    )
+
+    @Serializable
+    private data class OpenLibraryEditions(val docs: List<OpenLibraryEdition> = emptyList())
+
+    @Serializable
+    private data class OpenLibraryEdition(val isbn: List<String>? = null)
+
     // ---------- Google Books ----------
 
     private suspend fun fromGoogleBooks(isbn: String): BookInfo? {
@@ -101,6 +154,7 @@ object BookLookup {
             pageCount = info.pageCount?.takeIf { it > 0 },
             categories = info.categories.orEmpty(),
             language = info.language,
+            maturityRating = info.maturityRating,
             description = info.description,
             // Google returns http:// links; Android blocks those by default
             coverUrl = (info.imageLinks?.thumbnail ?: info.imageLinks?.smallThumbnail)
@@ -126,6 +180,7 @@ object BookLookup {
         val pageCount: Int? = null,
         val categories: List<String>? = null,
         val language: String? = null,
+        val maturityRating: String? = null,
         val imageLinks: GoogleImageLinks? = null,
     )
 

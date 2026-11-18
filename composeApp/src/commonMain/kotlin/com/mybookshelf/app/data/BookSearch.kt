@@ -1,18 +1,18 @@
 package com.mybookshelf.app.data
 
 /**
- * Filters books with a search text, e.g. "tolkien", "fantasy 1937", "petit prince".
+ * Filters books with a search text (e.g. "tolkien", "fantasy 1937", "petit prince") and/or book bands.
  * Every word typed must appear somewhere in the book (title, author, genre, year, ISBN…).
  * Ignores upper/lower case and accents ("é" = "e").
  */
 object BookSearch {
 
-    fun filter(books: List<BookInfo>, query: String): List<BookInfo> {
+    /** @param bands only keep books matching at least one of these book bands (empty = all). */
+    fun filter(books: List<BookInfo>, query: String, bands: Set<BookBand> = emptySet()): List<BookInfo> {
         val words = normalize(query).split(' ').filter { it.isNotBlank() }
-        if (words.isEmpty()) return books
         return books.filter { book ->
-            val text = searchableText(book)
-            words.all { it in text }
+            (bands.isEmpty() || ReadingLevels.of(book).bands.any { it in bands }) &&
+                (words.isEmpty() || searchableText(book).let { text -> words.all { it in text } })
         }
     }
 

@@ -43,6 +43,16 @@ object Library {
         update(listOf(book.copy(addedOn = today)) + _books.value)
     }
 
+    /** Adds several books at once (books already in the library are skipped). */
+    fun addAll(books: List<BookInfo>) {
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
+        val existing = _books.value.map { it.isbn }.toSet()
+        val newBooks = books.filter { it.isbn !in existing }.distinctBy { it.isbn }.map { it.copy(addedOn = today) }
+        update(newBooks + _books.value)
+    }
+
+    fun removeAll() = update(emptyList())
+
     fun remove(isbn: String) {
         update(_books.value.filterNot { it.isbn == isbn })
     }

@@ -47,10 +47,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mybookshelf.app.data.AgeGroup
 import com.mybookshelf.app.data.BookClassifier
+import com.mybookshelf.app.data.BookBand
 import com.mybookshelf.app.data.BookInfo
 import com.mybookshelf.app.data.BookSearch
 import com.mybookshelf.app.data.Library
+import com.mybookshelf.app.data.ReadingLevels
+import com.mybookshelf.app.ui.components.BookBandFilter
 import com.mybookshelf.app.ui.components.BookCard
 import com.mybookshelf.app.ui.components.BookCover
 import com.mybookshelf.app.ui.components.GnomeMessage
@@ -71,14 +75,21 @@ fun LibraryScreen(onScan: () -> Unit) {
     var bookToRemove by remember { mutableStateOf<BookInfo?>(null) }
     // Text typed in the search bar
     var query by rememberSaveable { mutableStateOf("") }
-    // Recomputed only when the books or the search text change
-    val shownBooks = remember(books, query) { BookSearch.filter(books, query) }
+    // Book bands ticked in the drop-down list (empty = all)
+    var bandFilter by remember { mutableStateOf(emptySet<BookBand>()) }
+    // Recomputed only when the books, the search text or the bands change
+    val shownBooks = remember(books, query, bandFilter) { BookSearch.filter(books, query, bandFilter) }
 
     if (books.isEmpty()) {
         EmptyLibrary(onScan)
     } else Column(Modifier.fillMaxSize()) {
         // Stays at the top while the list scrolls
         SearchBar(query, onQueryChange = { query = it })
+        BookBandFilter(
+            selected = bandFilter,
+            onChange = { bandFilter = it },
+            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp),
+        )
 
         // LazyColumn = a scrollable list that only draws visible rows (like RecyclerView / UITableView)
         LazyColumn(
@@ -96,8 +107,9 @@ fun LibraryScreen(onScan: () -> Unit) {
             }
             if (shownBooks.isEmpty()) {
                 item {
+                    val forAge = if (bandFilter.isEmpty()) "" else " in these book bands"
                     Text(
-                        "No book matches \"$query\".",
+                        if (query.isBlank()) "No book$forAge yet." else "No book$forAge matches \"$query\".",
                         modifier = Modifier.fillMaxWidth().padding(32.dp),
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -164,7 +176,7 @@ private fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
         value = query,
         onValueChange = onQueryChange,
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
-        placeholder = { Text("Search title, author, genre, year…") },
+        placeholder = { Text("Search title, author, genre…") },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         trailingIcon = {
             if (query.isNotEmpty()) {
@@ -218,7 +230,8 @@ private fun CompactBookRow(book: BookInfo, onClick: () -> Unit) {
     val kind = BookClassifier.kind(book)
     val genre = BookClassifier.genres(book, kind).firstOrNull()
     val year = book.firstPublishYear ?: BookClassifier.yearOf(book.publishedDate)
-    val details = listOfNotNull(kind?.label, genre, year?.toString()).joinToString(" · ")
+    val age = ReadingLevels.of(book).ageGroup.let { if (it == AgeGroup.Adult) "Adult" else "Age ${it.label}" }
+    val details = listOfNotNull(kind?.label, genre, year?.toString(), age).joinToString(" · ")
 
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
