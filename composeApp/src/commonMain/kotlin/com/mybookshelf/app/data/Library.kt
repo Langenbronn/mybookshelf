@@ -59,6 +59,12 @@ object Library {
         update(_books.value.map { if (it.isbn == isbn) it.copy(corrections = clean) else it })
     }
 
+    /** Stores several books in a place at once (null = no place). */
+    fun setPlace(isbns: Set<String>, placeId: String?) {
+        if (isbns.isEmpty()) return
+        update(_books.value.map { if (it.isbn in isbns) it.copy(placeId = placeId) else it })
+    }
+
     fun remove(isbn: String) {
         update(_books.value.filterNot { it.isbn == isbn })
     }

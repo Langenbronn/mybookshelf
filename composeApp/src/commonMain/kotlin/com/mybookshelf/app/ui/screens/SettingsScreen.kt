@@ -51,7 +51,7 @@ fun SettingsScreen() {
         )
         ListItem(
             headlineContent = { Text("Meet the gnome") },
-            supportingContent = { Text("All the poses of the bookshelf gnome") },
+            supportingContent = { Text("All ${GnomePose.entries.size} poses of the bookshelf gnome") },
             leadingContent = { Gnome(GnomePose.Waving, size = 40.dp) },
             modifier = Modifier.clickable { showGnomes = true },
         )

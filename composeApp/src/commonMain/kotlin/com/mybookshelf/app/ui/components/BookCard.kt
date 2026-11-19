@@ -39,6 +39,7 @@ import com.mybookshelf.app.data.AgeGroup
 import com.mybookshelf.app.data.BookInfo
 import com.mybookshelf.app.data.BookKind
 import com.mybookshelf.app.data.Origin
+import com.mybookshelf.app.data.Places
 import com.mybookshelf.app.data.ReadingLevel
 import com.mybookshelf.app.data.ReadingLevels
 
@@ -112,6 +113,7 @@ fun BookCard(
             book.pageCount?.let { DetailRow("Pages", it.toString()) }
             book.language?.let { DetailRow("Language", it.uppercase()) }
             book.addedOn?.let { DetailRow("Added on", it) }
+            Places.byId(book.placeId)?.let { DetailRow("Stored in", it.name) }
 
             book.description?.let { Description(it, shortDescription) }
 

@@ -45,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mybookshelf.app.data.AgeGroup
@@ -59,6 +58,7 @@ import com.mybookshelf.app.ui.components.BookBandFilter
 import com.mybookshelf.app.ui.components.BookCard
 import com.mybookshelf.app.ui.components.BookCover
 import com.mybookshelf.app.ui.components.EditDetailsDialog
+import com.mybookshelf.app.ui.components.Gnome
 import com.mybookshelf.app.ui.components.GnomeMessage
 import com.mybookshelf.app.ui.components.GnomePose
 
@@ -112,11 +112,10 @@ fun LibraryScreen(onScan: () -> Unit) {
             if (shownBooks.isEmpty()) {
                 item {
                     val forAge = if (bandFilter.isEmpty()) "" else " in these book bands"
-                    Text(
+                    GnomeMessage(
+                        GnomePose.Confused,
                         if (query.isBlank()) "No book$forAge yet." else "No book$forAge matches \"$query\".",
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
                     )
                 }
             }
@@ -156,6 +155,22 @@ fun LibraryScreen(onScan: () -> Unit) {
                     else -> {
                         CompactBookRow(book, onClick = { openIsbn = book.isbn })
                         HorizontalDivider(Modifier.padding(start = 80.dp))
+                    }
+                }
+            }
+            // At the very bottom: the gnome waves goodbye
+            if (shownBooks.isNotEmpty()) {
+                item(key = "end") {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Gnome(GnomePose.Waving, size = 80.dp)
+                        Text(
+                            "That's the end of the shelf!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

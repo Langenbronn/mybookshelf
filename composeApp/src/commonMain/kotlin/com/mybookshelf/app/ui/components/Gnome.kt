@@ -41,6 +41,9 @@ enum class GnomePose(val label: String) {
     Love("Love"),
     Painting("Painting"),
     Shy("Shy"),
+    Carrying("Carrying books"),
+    Tea("Tea time"),
+    Pointing("Pointing"),
 }
 
 // Gnome colors (the same in light and dark mode)
@@ -70,6 +73,12 @@ private val BookCover = Color(0xFF7A4B2A)
 private val Page = Color(0xFFFFF8E7)
 private val PageTurning = Color(0xFFEFE4CC)
 private val TextLine = Color(0xFFCBBFA6)
+private val StackBooks = listOf(Color(0xFF2F6B4F), Color(0xFFB8433A), Color(0xFFE0A030))
+private val Cup = Color(0xFFFFFDF7)
+private val CupEdge = Color(0xFFB9A88E)
+private val TeaColor = Color(0xFFB0703A)
+private val Steam = Color(0xFFB8B8B8)
+private val Sparkle = Color(0xFFF6C744)
 
 private const val TWO_PI = (2 * PI).toFloat()
 
@@ -118,6 +127,9 @@ fun Gnome(pose: GnomePose, modifier: Modifier = Modifier, size: Dp = 140.dp) {
                 GnomePose.Love -> drawLove(fast, slow)
                 GnomePose.Painting -> drawPainting(fast, slow, blink)
                 GnomePose.Shy -> drawShy(slow, blink)
+                GnomePose.Carrying -> drawCarrying(fast, slow, blink)
+                GnomePose.Tea -> drawTea(slow, blink)
+                GnomePose.Pointing -> drawPointing(fast, slow, blink)
             }
         }
     }
@@ -314,6 +326,128 @@ private fun DrawScope.drawShy(slow: Float, blink: Float) {
         close()
     }
     drawPath(dropPath, Drop.copy(alpha = alpha))
+}
+
+/** Walking with a stack of three books in his arms (used for places / storing books). */
+private fun DrawScope.drawCarrying(fast: Float, slow: Float, blink: Float) {
+    val step = sin(fast)
+    val wobble = sin(fast) * 1.5f   // the stack tilts a little with each step
+    val leftHand = Offset(37f, 74f)
+    val rightHand = Offset(63f, 74f)
+    drawGnome(
+        Look(
+            bounce = -abs(step) * 2.5f,
+            leftFootLift = max(0f, step) * 4f,
+            rightFootLift = max(0f, -step) * 4f,
+            hatAngle = sin(slow) * 6f,
+            eyeOpen = blink,
+            lookY = -0.6f,
+        ),
+        arms = {
+            drawArm(Offset(41f, 60f), leftHand)
+            drawArm(Offset(59f, 60f), rightHand)
+        },
+        front = {
+            rotate(degrees = wobble, pivot = Offset(50f, 80f)) {
+                // Three books, each one a bit shifted
+                val widths = listOf(26f, 23f, 24f)
+                val shifts = listOf(0f, 1.5f, -1f)
+                for (i in 0..2) {
+                    val y = 75f - i * 5.2f
+                    val left = 50f - widths[i] / 2f + shifts[i]
+                    drawRoundRect(StackBooks[i], Offset(left, y), Size(widths[i], 5f), CornerRadius(1f))
+                    // Pages on the side
+                    drawRect(Page, Offset(left + widths[i] - 3f, y + 0.8f), Size(2.2f, 3.4f))
+                    // Little gold line on the spine
+                    drawLine(Sparkle, Offset(left + 3f, y + 2.5f), Offset(left + 9f, y + 2.5f), strokeWidth = 0.6f)
+                }
+            }
+            drawCircle(Skin, radius = 2.8f, center = leftHand)
+            drawCircle(Skin, radius = 2.8f, center = rightHand)
+        },
+    )
+}
+
+/** Cosy tea break: sipping from a steaming cup, eyes closed with pleasure. */
+private fun DrawScope.drawTea(slow: Float, blink: Float) {
+    // Every few seconds the cup goes up to the beard for a sip
+    val sip = max(0f, sin(slow)).let { it * it }   // 0..1
+    val hand = Offset(60f - sip * 4f, 72f - sip * 10f)
+    drawGnome(
+        Look(
+            bounce = -(1f + sin(slow * 2f)) * 0.3f,
+            hatAngle = -6f + sin(slow) * 3f,
+            eyes = if (sip > 0.4f) EyeStyle.Closed else EyeStyle.Open,
+            eyeOpen = blink,
+            blush = sip > 0.4f,
+        ),
+        arms = {
+            drawArm(Offset(41f, 60f), Offset(44f, 77f))
+            drawArm(Offset(59f, 60f), hand)
+        },
+        front = {
+            val cupTop = Offset(hand.x - 3f, hand.y - 7f)
+            // Handle
+            drawArc(
+                CupEdge, startAngle = -90f, sweepAngle = 180f, useCenter = false,
+                topLeft = Offset(cupTop.x + 7f, cupTop.y + 1.5f), size = Size(4f, 4.5f),
+                style = Stroke(width = 1.2f),
+            )
+            // Cup and tea
+            drawRoundRect(Cup, cupTop, Size(9f, 8f), CornerRadius(1.5f, 3f))
+            drawRoundRect(CupEdge, cupTop, Size(9f, 8f), CornerRadius(1.5f, 3f), style = Stroke(width = 0.6f))
+            drawOval(TeaColor, Offset(cupTop.x + 0.8f, cupTop.y + 0.3f), Size(7.4f, 1.8f))
+            drawCircle(Skin, radius = 2.8f, center = hand)
+            // Steam: two wavy lines going up and fading
+            val t = slow / TWO_PI
+            for (i in 0..1) {
+                val p = (t * 2f + i * 0.5f) % 1f
+                val x = cupTop.x + 2.5f + i * 4f
+                val y = cupTop.y - 2f - p * 10f
+                val steam = Path().apply {
+                    moveTo(x, y + 5f)
+                    quadraticTo(x - 2f, y + 2.5f, x, y)
+                    quadraticTo(x + 2f, y - 2.5f, x, y - 5f)
+                }
+                drawPath(steam, Steam.copy(alpha = 0.8f * sin(p * PI.toFloat())), style = Stroke(width = 0.9f, cap = StrokeCap.Round))
+            }
+        },
+    )
+}
+
+/** Pointing up to the right with a twinkle ("look here!"), the other hand on the hip. */
+private fun DrawScope.drawPointing(fast: Float, slow: Float, blink: Float) {
+    val nudge = max(0f, sin(fast)) * 2f   // the arm pokes forward
+    val hand = Offset(74f + nudge, 44f - nudge * 0.6f)
+    drawGnome(
+        Look(bounce = -(1f + sin(slow)) * 0.5f, hatAngle = 6f + sin(slow) * 3f, eyeOpen = blink, lookX = 1.2f, lookY = -0.5f),
+        arms = {
+            drawArm(Offset(41f, 60f), Offset(36f, 70f))   // hand on the hip
+            drawArm(Offset(59f, 60f), hand)
+        },
+        front = {
+            // Pointing finger
+            drawLine(Skin, hand, Offset(hand.x + 3.2f, hand.y - 2f), strokeWidth = 1.6f, cap = StrokeCap.Round)
+        },
+    )
+    // Twinkling star where he points
+    val star = Offset(86f, 30f)
+    val twinkle = 0.6f + 0.4f * sin(slow * 3f)
+    drawStar(star, 5f * twinkle)
+}
+
+/** A 4-point sparkle. */
+private fun DrawScope.drawStar(center: Offset, size: Float) {
+    val (x, y) = center
+    val star = Path().apply {
+        moveTo(x, y - size)
+        quadraticTo(x, y, x + size, y)
+        quadraticTo(x, y, x, y + size)
+        quadraticTo(x, y, x - size, y)
+        quadraticTo(x, y, x, y - size)
+        close()
+    }
+    drawPath(star, Sparkle)
 }
 
 // ---------------------------------------------------------------------------

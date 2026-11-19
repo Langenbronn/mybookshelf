@@ -39,6 +39,8 @@ data class BookInfo(
     val addedOn: String? = null,
     /** Details corrected by hand in the Library (null = everything automatic). */
     val corrections: Corrections? = null,
+    /** Where the book is stored (id of a [Place]), null = not set. Optional. */
+    val placeId: String? = null,
 )
 
 /**
