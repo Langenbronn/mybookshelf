@@ -5,9 +5,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.random.Random
 
 /** A place where books can be stored, e.g. "Living room shelf" or "Box in the attic". */
 @Serializable
@@ -36,7 +35,8 @@ object Places {
     /** Adds a place and returns it (or null if the name is empty). */
     fun add(name: String): Place? {
         val clean = name.trim().ifEmpty { return null }
-        val place = Place(id = "p" + Clock.System.now().toEpochMilliseconds(), name = clean)
+        // Time + random number: unique even when several places are created at once (import)
+        val place = Place(id = "p" + Clock.System.now().toEpochMilliseconds() + "-" + Random.nextInt(100_000), name = clean)
         update(_places.value + place)
         return place
     }

@@ -55,6 +55,13 @@ import com.mybookshelf.app.data.Places
 import com.mybookshelf.app.ui.components.BookCover
 import com.mybookshelf.app.ui.components.GnomeMessage
 import com.mybookshelf.app.ui.components.GnomePose
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import com.mybookshelf.app.ui.components.rememberBookExporter
+import kotlinx.coroutines.launch
 
 /**
  * Places page: the list of places where books are stored (shelves, boxes, rooms…).
@@ -79,7 +86,12 @@ fun PlacesScreen() {
     var placeToDelete by remember { mutableStateOf<Place?>(null) }
 
     val openPlace = places.firstOrNull { it.id == openPlaceId }
+    // Short messages at the bottom ("5 books exported")
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val export = rememberBookExporter { message -> scope.launch { snackbar.showSnackbar(message) } }
 
+    Box(Modifier.fillMaxSize()) {
     when {
         openPlace == null -> PlaceList(
             places = places,
@@ -99,7 +111,10 @@ fun PlacesScreen() {
             onPick = { picking = true },
             onRename = { placeToRename = openPlace },
             onDelete = { placeToDelete = openPlace },
+            onExport = { export(books.filter { it.placeId == openPlace.id }, openPlace.name) },
         )
+    }
+    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
 
     if (showNewPlace) {
@@ -243,6 +258,7 @@ private fun PlaceDetail(
     onPick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onExport: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -259,6 +275,9 @@ private fun PlaceDetail(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            IconButton(onClick = onExport, enabled = books.isNotEmpty()) {
+                Icon(Icons.Filled.Share, contentDescription = "Export the books of this place")
             }
             IconButton(onClick = onRename) { Icon(Icons.Filled.Edit, contentDescription = "Rename") }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = "Delete place") }

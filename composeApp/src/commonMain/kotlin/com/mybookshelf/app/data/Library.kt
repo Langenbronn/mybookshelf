@@ -1,13 +1,12 @@
 package com.mybookshelf.app.data
 
+import com.mybookshelf.app.data.Library.books
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
@@ -48,6 +47,18 @@ object Library {
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
         val existing = _books.value.map { it.isbn }.toSet()
         val newBooks = books.filter { it.isbn !in existing }.distinctBy { it.isbn }.map { it.copy(addedOn = today) }
+        update(newBooks + _books.value)
+    }
+
+    /**
+     * Adds imported books, keeping their place and their "added on" date (today if they have none).
+     * Books already in the library are skipped.
+     */
+    fun importBooks(books: List<BookInfo>) {
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
+        val existing = _books.value.map { it.isbn }.toSet()
+        val newBooks = books.filter { it.isbn !in existing }.distinctBy { it.isbn }
+            .map { it.copy(addedOn = it.addedOn ?: today) }
         update(newBooks + _books.value)
     }
 

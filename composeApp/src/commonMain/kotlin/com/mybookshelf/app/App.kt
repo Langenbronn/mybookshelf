@@ -34,6 +34,7 @@ import com.mybookshelf.app.ui.screens.PlacesScreen
 import com.mybookshelf.app.ui.screens.ScanScreen
 import com.mybookshelf.app.ui.screens.SettingsScreen
 import com.mybookshelf.app.ui.theme.AppTheme
+import com.mybookshelf.app.ui.components.ImportStatusDialog
 
 /**
  * Root of the application, shared by Android and iOS.
@@ -112,6 +113,8 @@ fun App() {
                     Screen.Settings -> SettingsScreen()
                 }
             }
+            // Progress / result of a CSV import, whatever the page
+            ImportStatusDialog()
         }
     }
 }

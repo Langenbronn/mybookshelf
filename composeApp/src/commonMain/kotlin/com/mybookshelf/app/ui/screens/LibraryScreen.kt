@@ -62,6 +62,22 @@ import com.mybookshelf.app.ui.components.Gnome
 import com.mybookshelf.app.ui.components.GnomeMessage
 import com.mybookshelf.app.ui.components.GnomePose
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.rememberCoroutineScope
+import com.mybookshelf.app.ui.components.rememberBookExporter
+import com.mybookshelf.app.ui.components.rememberBookImporter
+import kotlinx.coroutines.launch
 /**
  * Library page: every book the user added from the Scan page.
  * Two views: "Detailed" (a full card per book) or "Compact" (one row per book, tap to open).
@@ -83,9 +99,17 @@ fun LibraryScreen(onScan: () -> Unit) {
     var bandFilter by remember { mutableStateOf(emptySet<BookBand>()) }
     // Recomputed only when the books, the search text or the bands change
     val shownBooks = remember(books, query, bandFilter) { BookSearch.filter(books, query, bandFilter) }
+    // Selection mode: tick books to export them (null = not selecting)
+    var selected by remember { mutableStateOf<Set<String>?>(null) }
+    // Short messages at the bottom ("12 books exported")
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val export = rememberBookExporter { message -> scope.launch { snackbar.showSnackbar(message) } }
+    val importFile = rememberBookImporter()
 
+    Box(Modifier.fillMaxSize()) {
     if (books.isEmpty()) {
-        EmptyLibrary(onScan)
+        EmptyLibrary(onScan, onImport = importFile)
     } else Column(Modifier.fillMaxSize()) {
         // Stays at the top while the list scrolls
         SearchBar(query, onQueryChange = { query = it })
@@ -94,6 +118,21 @@ fun LibraryScreen(onScan: () -> Unit) {
             onChange = { bandFilter = it },
             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp),
         )
+        selected?.let { ticked ->
+            SelectionBar(
+                count = ticked.size,
+                allShownTicked = shownBooks.isNotEmpty() && ticked.containsAll(shownBooks.map { it.isbn }),
+                onToggleAll = { all ->
+                    val shown = shownBooks.map { it.isbn }.toSet()
+                    selected = if (all) ticked + shown else ticked - shown
+                },
+                onExport = {
+                    export(books.filter { it.isbn in ticked }, "selection")
+                    selected = null
+                },
+                onClose = { selected = null },
+            )
+        }
 
         // LazyColumn = a scrollable list that only draws visible rows (like RecyclerView / UITableView)
         LazyColumn(
@@ -107,6 +146,9 @@ fun LibraryScreen(onScan: () -> Unit) {
                     total = books.size,
                     compact = compact,
                     onCompactChange = { Library.setCompactView(it) },
+                    onSelect = { selected = emptySet() },
+                    onExportAll = { export(books, null) },
+                    onImport = importFile,
                 )
             }
             if (shownBooks.isEmpty()) {
@@ -135,7 +177,18 @@ fun LibraryScreen(onScan: () -> Unit) {
                         }
                     }
                 }
+                val ticked = selected
                 when {
+                    // Selection mode: short rows with a checkbox
+                    ticked != null -> {
+                        val isTicked = book.isbn in ticked
+                        CompactBookRow(
+                            book,
+                            onClick = { selected = if (isTicked) ticked - book.isbn else ticked + book.isbn },
+                            checked = isTicked,
+                        )
+                        HorizontalDivider(Modifier.padding(start = 80.dp))
+                    }
                     !compact -> BookCard(
                         book,
                         modifier = Modifier.padding(horizontal = 16.dp),
@@ -175,6 +228,9 @@ fun LibraryScreen(onScan: () -> Unit) {
                 }
             }
         }
+    }
+
+    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
 
     bookToEdit?.let { book ->
@@ -230,9 +286,17 @@ private fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
     )
 }
 
-/** "3 books" (or "2 of 3 books" when searching) + the Compact / Detailed switch. */
+/** "3 books" (or "2 of 3 books" when searching) + the Compact / Detailed switch + the ⋮ menu. */
 @Composable
-private fun Header(shown: Int, total: Int, compact: Boolean, onCompactChange: (Boolean) -> Unit) {
+private fun Header(
+    shown: Int,
+    total: Int,
+    compact: Boolean,
+    onCompactChange: (Boolean) -> Unit,
+    onSelect: () -> Unit,
+    onExportAll: () -> Unit,
+    onImport: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -259,12 +323,67 @@ private fun Header(shown: Int, total: Int, compact: Boolean, onCompactChange: (B
                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
             ) { Text("Detailed") }
         }
+        Box {
+            var menuOpen by remember { mutableStateOf(false) }
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "More")
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Select books to export") },
+                    leadingIcon = { Icon(Icons.Filled.CheckCircle, contentDescription = null) },
+                    onClick = { menuOpen = false; onSelect() },
+                )
+                DropdownMenuItem(
+                    text = { Text("Export all books") },
+                    leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                    onClick = { menuOpen = false; onExportAll() },
+                )
+                DropdownMenuItem(
+                    text = { Text("Import books (CSV file)") },
+                    leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    onClick = { menuOpen = false; onImport() },
+                )
+            }
+        }
+    }
+}
+
+/** Shown while selecting books: how many are ticked, "All", "Export", and a close button. */
+@Composable
+private fun SelectionBar(
+    count: Int,
+    allShownTicked: Boolean,
+    onToggleAll: (Boolean) -> Unit,
+    onExport: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.primaryContainer) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Stop selecting") }
+            Text(
+                if (count == 1) "1 selected" else "$count selected",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            TextButton(onClick = { onToggleAll(!allShownTicked) }) {
+                Text(if (allShownTicked) "None" else "All")
+            }
+            Button(onClick = onExport, enabled = count > 0) {
+                Icon(Icons.Filled.Share, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Export")
+            }
+        }
     }
 }
 
 /** One short row: small cover, title, author, "Fiction · Fantasy · 1943". */
 @Composable
-private fun CompactBookRow(book: BookInfo, onClick: () -> Unit) {
+private fun CompactBookRow(book: BookInfo, onClick: () -> Unit, checked: Boolean? = null) {
     val kind = BookClassifier.kind(book)
     val genre = BookClassifier.genres(book, kind).firstOrNull()
     val year = book.firstPublishYear ?: BookClassifier.yearOf(book.publishedDate)
@@ -284,6 +403,8 @@ private fun CompactBookRow(book: BookInfo, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Checkbox only in selection mode
+        checked?.let { Checkbox(checked = it, onCheckedChange = null) }
         BookCover(book, width = 48.dp, height = 72.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
@@ -311,16 +432,18 @@ private fun CompactBookRow(book: BookInfo, onClick: () -> Unit) {
                 )
             }
         }
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = "Open",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (checked == null) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Open",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
 @Composable
-private fun EmptyLibrary(onScan: () -> Unit) {
+private fun EmptyLibrary(onScan: () -> Unit, onImport: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
@@ -333,5 +456,6 @@ private fun EmptyLibrary(onScan: () -> Unit) {
             message = "Scan a book's barcode, then tap \"Add to my library\".",
         )
         Button(onClick = onScan) { Text("Scan a book") }
+        OutlinedButton(onClick = onImport) { Text("Import a CSV file") }
     }
 }
