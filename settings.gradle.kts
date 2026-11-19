@@ -1,4 +1,4 @@
-rootProject.name = "MyBookshelf"
+rootProject.name = "GnomeLibrary"
 
 pluginManagement {
     repositories {

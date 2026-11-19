@@ -1,9 +1,9 @@
-# My Bookshelf
+# Gnome Library
 
 A smartphone app for **Android** and **iPhone**, written once in **Kotlin** using
 [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/).
 
-For now it has a bottom menu with 5 pages: Home, Scan, Library, Favorites and Settings.
+It has a bottom menu with 5 pages: Library, Scan, Places, Favorites and Settings.
 
 **Scan** reads a book's barcode (ISBN) with the camera, or lets you type the ISBN, and shows
 the book's details (cover, authors, publisher, pages, description) from Google Books, with
@@ -24,7 +24,7 @@ after closing the app.
 4. Pick the `composeApp` run configuration, choose an emulator or a phone, then click ▶ **Run**.
 
 > **One-time step:** the `gradlew` scripts are not in the repo yet. Create them from Android Studio:
-> open the **Gradle** panel (right side) > `MyBookshelf` > *Tasks* > *build setup* > double-click **wrapper**.
+> open the **Gradle** panel (right side) > `GnomeLibrary` > *Tasks* > *build setup* > double-click **wrapper**.
 > You need them for the command line and for iOS builds.
 
 ## Project structure

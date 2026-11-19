@@ -70,7 +70,7 @@ fun App() {
                                 Column {
                                     Text(currentScreen.title, style = MaterialTheme.typography.titleLarge)
                                     Text(
-                                        "My Bookshelf",
+                                        "Gnome Library",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
                                     )

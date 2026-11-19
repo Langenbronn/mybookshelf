@@ -94,7 +94,7 @@ private class CameraScannerView(
                         else finish(ScanResult.Error("Camera access denied"))
                     }
                 }
-            else -> finish(ScanResult.Error("Camera access denied. Enable it in Settings > My Bookshelf."))
+            else -> finish(ScanResult.Error("Camera access denied. Enable it in Settings > Gnome Library."))
         }
     }
 

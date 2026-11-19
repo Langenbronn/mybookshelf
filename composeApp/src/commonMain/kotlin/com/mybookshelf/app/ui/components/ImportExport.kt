@@ -27,7 +27,7 @@ import kotlinx.datetime.todayIn
 
 /**
  * Returns a function `export(books, label)` that saves the books in a CSV file
- * named like "my-bookshelf-living-room-2026-11-19.csv". [onDone] gets a message to show.
+ * named like "gnome-library-living-room-2026-11-19.csv". [onDone] gets a message to show.
  */
 @Composable
 fun rememberBookExporter(onDone: (message: String) -> Unit): (books: List<BookInfo>, label: String?) -> Unit {
@@ -41,7 +41,7 @@ fun rememberBookExporter(onDone: (message: String) -> Unit): (books: List<BookIn
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
         val slug = label?.lowercase()?.map { if (it.isLetterOrDigit()) it else '-' }?.joinToString("")
             ?.split('-')?.filter { it.isNotEmpty() }?.joinToString("-")?.ifEmpty { null }
-        val name = listOfNotNull("my-bookshelf", slug, today.toString()).joinToString("-") + ".csv"
+        val name = listOfNotNull("gnome-library", slug, today.toString()).joinToString("-") + ".csv"
         save(name, BookCsv.export(books))
     }
 }

@@ -1,6 +1,6 @@
 TEAM_ID=
 
-PRODUCT_NAME=MyBookshelf
+PRODUCT_NAME=GnomeLibrary
 PRODUCT_BUNDLE_IDENTIFIER=com.mybookshelf.app.MyBookshelf$(TEAM_ID)
 
 CURRENT_PROJECT_VERSION=1
