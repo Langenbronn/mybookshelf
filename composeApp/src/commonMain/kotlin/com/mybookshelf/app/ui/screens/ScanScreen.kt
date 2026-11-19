@@ -52,6 +52,17 @@ import com.mybookshelf.app.ui.components.Gnome
 import com.mybookshelf.app.ui.components.GnomeLoader
 import com.mybookshelf.app.ui.components.GnomeMessage
 import com.mybookshelf.app.ui.components.GnomePose
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.style.TextAlign
+import com.mybookshelf.app.data.Place
+import com.mybookshelf.app.data.Places
 import kotlinx.coroutines.launch
 
 /** What the Scan page is currently showing. */
@@ -62,6 +73,18 @@ private sealed interface LookupState {
     data class Results(val query: String, val results: List<BookLookup.SearchResult>) : LookupState
     data class NotFound(val message: String) : LookupState
     data class Failed(val message: String) : LookupState
+    /** Quick add: the scanned book went straight into the library. */
+    data class QuickAdded(val book: BookInfo, val result: QuickResult) : LookupState
+}
+
+/** What happened to a book scanned in quick-add mode. */
+private sealed interface QuickResult {
+    /** New in the library (in [place], or without a place). */
+    data class Added(val place: Place?) : QuickResult
+    /** Was already in the library and had no place: now stored in [place]. */
+    data class StoredIn(val place: Place) : QuickResult
+    /** Was already in the library (in [place], or without a place): nothing changed. */
+    data class AlreadyThere(val place: Place?) : QuickResult
 }
 
 private const val NETWORK_ERROR = "Could not reach the book servers. Check your internet connection."
@@ -79,6 +102,43 @@ fun ScanScreen() {
     var lastResults by remember { mutableStateOf<LookupState.Results?>(null) }
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
+    // Quick add: a scanned book goes straight into the library, optionally in a place
+    var quickAdd by rememberSaveable { mutableStateOf(false) }
+    var quickPlaceId by rememberSaveable { mutableStateOf<String?>(null) }
+    val places by Places.places.collectAsState()
+    // If the chosen place was deleted meanwhile, fall back to "no place"
+    val quickPlace = places.firstOrNull { it.id == quickPlaceId }
+
+    /** Quick add: finds the book and puts it in the library (and in [quickPlace]) without asking. */
+    fun quickAddIsbn(isbn: String) {
+        state = LookupState.Loading
+        scope.launch {
+            state = try {
+                val book = BookLookup.findByIsbn(isbn)
+                if (book == null) {
+                    LookupState.NotFound("No book found for ISBN $isbn.")
+                } else {
+                    val existing = Library.books.value.firstOrNull { it.isbn == book.isbn }
+                    val currentPlace = Places.byId(existing?.placeId)
+                    val result = when {
+                        existing == null -> {
+                            Library.add(book.copy(placeId = quickPlace?.id))
+                            QuickResult.Added(quickPlace)
+                        }
+                        // A book is only ever in one place: only store it if it has none yet
+                        currentPlace == null && quickPlace != null -> {
+                            Library.setPlace(setOf(book.isbn), quickPlace.id)
+                            QuickResult.StoredIn(quickPlace)
+                        }
+                        else -> QuickResult.AlreadyThere(currentPlace)
+                    }
+                    LookupState.QuickAdded(existing ?: book, result)
+                }
+            } catch (e: Exception) {
+                LookupState.Failed(NETWORK_ERROR)
+            }
+        }
+    }
 
     /** Loads one book from its ISBN. */
     fun openIsbn(isbn: String) {
@@ -125,11 +185,19 @@ fun ScanScreen() {
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            QuickAddOptions(
+                enabled = quickAdd,
+                onEnabledChange = { quickAdd = it },
+                places = places,
+                place = quickPlace,
+                onPlaceChange = { quickPlaceId = it?.id },
+            )
+
             Button(
                 onClick = { scanning = true },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
             ) {
-                Text("Scan a barcode")
+                Text(if (quickAdd) "Scan & add to my library" else "Scan a barcode")
             }
 
             // Manual search: ISBN, title or author
@@ -171,6 +239,7 @@ fun ScanScreen() {
                 }
                 is LookupState.NotFound -> GnomeMessage(GnomePose.Confused, s.message, messageModifier)
                 is LookupState.Failed -> GnomeMessage(GnomePose.Confused, s.message, messageModifier, isError = true)
+                is LookupState.QuickAdded -> QuickAddedBook(s.book, s.result, onScanNext = { scanning = true })
             }
         }
 
@@ -178,7 +247,16 @@ fun ScanScreen() {
         BarcodeScannerHost(active = scanning) { result ->
             scanning = false
             when (result) {
-                is ScanResult.Success -> search(result.code)
+                is ScanResult.Success -> {
+                    val isbn = BookLookup.normalizeIsbn(result.code)
+                    if (quickAdd && isbn != null) {
+                        lastResults = null
+                        input = isbn
+                        quickAddIsbn(isbn)
+                    } else {
+                        search(result.code)
+                    }
+                }
                 is ScanResult.Error -> state = LookupState.Failed(result.message)
                 ScanResult.Cancelled -> Unit
             }
@@ -266,6 +344,123 @@ private fun FoundBook(book: BookInfo) {
                 Spacer(Modifier.width(8.dp))
                 Text("Add to my library")
             }
+        }
+    }
+}
+
+/** The "Quick add" switch, and the optional place where scanned books are stored. */
+@Composable
+private fun QuickAddOptions(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    places: List<Place>,
+    place: Place?,
+    onPlaceChange: (Place?) -> Unit,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Quick add", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Scanned books go straight into your library",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = enabled, onCheckedChange = onEnabledChange)
+            }
+            if (enabled) {
+                var menuOpen by remember { mutableStateOf(false) }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Store in", modifier = Modifier.width(72.dp), style = MaterialTheme.typography.bodyMedium)
+                    Box(Modifier.weight(1f)) {
+                        OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Filled.Place, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                place?.name ?: "No place (optional)",
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("No place") },
+                                onClick = { onPlaceChange(null); menuOpen = false },
+                            )
+                            places.forEach { p ->
+                                DropdownMenuItem(
+                                    text = { Text(p.name) },
+                                    leadingIcon = { Icon(Icons.Filled.Place, contentDescription = null) },
+                                    onClick = { onPlaceChange(p); menuOpen = false },
+                                )
+                            }
+                        }
+                    }
+                }
+                if (places.isEmpty()) {
+                    Text(
+                        "Create places in the Places tab to store books while scanning.",
+                        modifier = Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** After a quick add: what happened, the book, and a button to scan the next one. */
+@Composable
+private fun QuickAddedBook(book: BookInfo, result: QuickResult, onScanNext: () -> Unit) {
+    val (pose, message) = when (result) {
+        is QuickResult.Added -> GnomePose.Celebrating to
+            (result.place?.let { "Added to your library, in ${it.name}!" } ?: "Added to your library!")
+        is QuickResult.StoredIn -> GnomePose.Carrying to
+            "Already in your library. Now stored in ${result.place.name}."
+        is QuickResult.AlreadyThere -> GnomePose.Shy to
+            (result.place?.let { "Already in your library, in ${it.name}." } ?: "Already in your library.")
+    }
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Gnome(pose, size = 96.dp)
+            Text(
+                message,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BookCover(book, width = 48.dp, height = 72.dp)
+                Column(Modifier.weight(1f)) {
+                    Text(book.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (book.authors.isNotEmpty()) {
+                        Text(
+                            book.authors.joinToString(", "),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+            Button(onClick = onScanNext, modifier = Modifier.fillMaxWidth()) { Text("Scan the next book") }
         }
     }
 }
