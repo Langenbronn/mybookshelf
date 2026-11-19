@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 
 /**
  * Imports books from a CSV file (see [BookCsv]).
@@ -92,7 +93,8 @@ object BookImport {
                     }
                 }
             }.awaitAll()
-            Library.importBooks(found.map { it.first })
+            // The library is only changed from the main thread (see Library)
+            withContext(Dispatchers.Main) { Library.importBooks(found.map { it.first }) }
             _state.value = State.Finished(
                 Report(
                     added = found.size,

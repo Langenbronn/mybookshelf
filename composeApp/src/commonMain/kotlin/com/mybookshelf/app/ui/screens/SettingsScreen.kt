@@ -12,7 +12,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,26 +28,15 @@ import com.mybookshelf.app.data.SampleBooks
 import com.mybookshelf.app.ui.components.Gnome
 import com.mybookshelf.app.ui.components.GnomePose
 
-/** Settings page: shows how a screen keeps its own state. */
+/** Settings page: the gnome gallery and the test data. */
 @Composable
 fun SettingsScreen() {
-    // Local state: the switch value (not saved yet, resets when leaving the page)
-    var notificationsEnabled by remember { mutableStateOf(true) }
     var showGnomes by remember { mutableStateOf(false) }
     var confirmRemoveAll by remember { mutableStateOf(false) }
     val books by Library.books.collectAsState()
     val download by SampleBooks.progress.collectAsState()
 
     Column(Modifier.verticalScroll(rememberScrollState())) {
-        ListItem(
-            headlineContent = { Text("Notifications") },
-            trailingContent = {
-                Switch(
-                    checked = notificationsEnabled,
-                    onCheckedChange = { notificationsEnabled = it },
-                )
-            },
-        )
         ListItem(
             headlineContent = { Text("Meet the gnome") },
             supportingContent = { Text("All ${GnomePose.entries.size} poses of the bookshelf gnome") },

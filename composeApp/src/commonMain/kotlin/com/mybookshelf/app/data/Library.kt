@@ -1,6 +1,5 @@
 package com.mybookshelf.app.data
 
-import com.mybookshelf.app.data.Library.books
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,6 +11,10 @@ import kotlinx.serialization.json.Json
 /**
  * The user's library: the list of saved books.
  * Screens read [books]; every change is saved on the phone immediately.
+ *
+ * Only change it from the main (UI) thread: two changes made at the same time from
+ * different threads could overwrite each other. Background jobs ([BookImport], [SampleBooks])
+ * switch to the main thread before calling it.
  */
 object Library {
 

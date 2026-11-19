@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 
 /**
  * 48 real books of every age, to test the app (Settings > "Add test books").
@@ -102,7 +103,8 @@ object SampleBooks {
                     }
                 }
             }.awaitAll().filterNotNull()
-            Library.addAll(books)
+            // The library is only changed from the main thread (see Library)
+            withContext(Dispatchers.Main) { Library.addAll(books) }
             _progress.value = null
         }
     }

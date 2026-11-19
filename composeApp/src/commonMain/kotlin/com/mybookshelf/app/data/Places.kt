@@ -17,6 +17,13 @@ data class Place(
 )
 
 /**
+ * The place with this [id] in the list (null if none).
+ * Screens use it on the list they observe (`Places.places.collectAsState()`),
+ * so they redraw when a place is renamed or deleted.
+ */
+fun List<Place>.withId(id: String?): Place? = id?.let { wanted -> firstOrNull { it.id == wanted } }
+
+/**
  * The user's list of places. Each book can optionally be stored in one place
  * ([BookInfo.placeId]). Every change is saved on the phone immediately.
  */
@@ -30,7 +37,8 @@ object Places {
     /** Places in alphabetical order. */
     val places: StateFlow<List<Place>> = _places.asStateFlow()
 
-    fun byId(id: String?): Place? = id?.let { wanted -> _places.value.firstOrNull { it.id == wanted } }
+    /** The place with this [id] right now (for code outside the screens; screens use [withId]). */
+    fun byId(id: String?): Place? = _places.value.withId(id)
 
     /** Adds a place and returns it (or null if the name is empty). */
     fun add(name: String): Place? {

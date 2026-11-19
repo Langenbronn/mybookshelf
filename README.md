@@ -1,5 +1,8 @@
 # Gnome Library
 
+> The code still uses the package name `com.mybookshelf.app` (the app's first name).
+> It is kept on purpose: changing it would make phones see a different app.
+
 A smartphone app for **Android** and **iPhone**, written once in **Kotlin** using
 [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/).
 

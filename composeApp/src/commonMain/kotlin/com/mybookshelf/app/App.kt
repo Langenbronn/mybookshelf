@@ -28,13 +28,13 @@ import androidx.compose.ui.unit.dp
 import com.mybookshelf.app.navigation.Screen
 import com.mybookshelf.app.ui.components.BookshelfStrip
 import com.mybookshelf.app.ui.components.Gnome
+import com.mybookshelf.app.ui.components.ImportStatusDialog
 import com.mybookshelf.app.ui.screens.FavoritesScreen
-import com.mybookshelf.app.ui.screens.LibraryScreen
-import com.mybookshelf.app.ui.screens.PlacesScreen
-import com.mybookshelf.app.ui.screens.ScanScreen
+import com.mybookshelf.app.ui.screens.library.LibraryScreen
+import com.mybookshelf.app.ui.screens.places.PlacesScreen
+import com.mybookshelf.app.ui.screens.scan.ScanScreen
 import com.mybookshelf.app.ui.screens.SettingsScreen
 import com.mybookshelf.app.ui.theme.AppTheme
-import com.mybookshelf.app.ui.components.ImportStatusDialog
 
 /**
  * Root of the application, shared by Android and iOS.

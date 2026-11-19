@@ -16,6 +16,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -40,6 +41,7 @@ import com.mybookshelf.app.data.BookInfo
 import com.mybookshelf.app.data.BookKind
 import com.mybookshelf.app.data.Origin
 import com.mybookshelf.app.data.Places
+import com.mybookshelf.app.data.withId
 import com.mybookshelf.app.data.ReadingLevel
 import com.mybookshelf.app.data.ReadingLevels
 
@@ -113,7 +115,9 @@ fun BookCard(
             book.pageCount?.let { DetailRow("Pages", it.toString()) }
             book.language?.let { DetailRow("Language", it.uppercase()) }
             book.addedOn?.let { DetailRow("Added on", it) }
-            Places.byId(book.placeId)?.let { DetailRow("Stored in", it.name) }
+            // Observed, so the name updates when the place is renamed
+            val places by Places.places.collectAsState()
+            places.withId(book.placeId)?.let { DetailRow("Stored in", it.name) }
 
             book.description?.let { Description(it, shortDescription) }
 
